@@ -1,0 +1,8 @@
+Model           Action Type	    Fields to Add / Keep	Notes
+User	        Soft Delete	    isActive, deletedAt	Never hard delete, keep history
+Project	        Archive	        isArchived, archivedAt	Hide from active dashboard
+ProjectMember	Hard Delete	—	Safe to remove
+Issue	        Status + Soft Delete	closedBy, closedAt, isDeleted	Track closure & soft delete
+Comment	        Soft Delete	isDeleted, deletedAt	Hide content but keep record
+Attachment	    Soft Delete	isDeleted, deletedAt	Remove file, retain DB record
+Notification	Hard Delete	—	Optional soft delete

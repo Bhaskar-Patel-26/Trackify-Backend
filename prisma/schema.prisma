@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationType {
+  ISSUE_ASSIGNED
+  COMMENT
+  STATUS_CHANGED
+}
+
+model User {
+  id               String          @id @default(uuid())
+  name             String
+  email            String          @unique
+  passwordHash     String?
+  role             UserRole        @default(VIEWER)
+
+  // Relations
+  projectsOwned    Project[]       @relation("ProjectOwner")
+  memberships      ProjectMember[]
+  issuesReported   Issue[]         @relation("IssueReporter")
+  issuesAssigned   Issue[]         @relation("IssueAssignee")
+  issuesClosed     Issue[]         @relation("IssueClosedBy")
+  commentsAuthored Comment[]       @relation("CommentAuthor")
+  commentsDeleted  Comment[]       @relation("CommentDeletedBy")
+  projectsDeleted  Project[]       @relation("ProjectDeletedBy")
+  attachment       Attachment[]
+  notification     Notification[]
+
+  // Lifecycle
+  isActive         Boolean         @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Project {
+  id           String          @id @default(uuid())
+  name         String
+  description  String?
+  ownerId      String
+  owner        User            @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members      ProjectMember[]
+  issues       Issue[]
+
+  // Lifecycle
+  isArchived   Boolean         @default(false)
+  archivedAt   DateTime?
+  deletedById  String?
+  deletedBy    User?           @relation("ProjectDeletedBy", fields: [deletedById], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      UserRole @default(VIEWER)
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model Issue {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  status      IssueStatus    @default(OPEN)
+  priority    IssuePriority  @default(MEDIUM)
+  projectId   String
+  reporterId  String
+  assigneeId  String?
+
+  project     Project        @relation(fields: [projectId], references: [id])
+  reporter    User           @relation("IssueReporter", fields: [reporterId], references: [id])
+  assignee    User?          @relation("IssueAssignee", fields: [assigneeId], references: [id])
+  closedById  String?
+  closedBy    User?          @relation("IssueClosedBy", fields: [closedById], references: [id])
+
+  comment     Comment[]
+  attachment  Attachment[]
+
+  // Lifecycle
+  isDeleted   Boolean        @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  content     String
+  issueId     String
+  userId      String
+
+  issue       Issue    @relation(fields: [issueId], references: [id])
+  author      User     @relation("CommentAuthor", fields: [userId], references: [id])
+  deletedById String?
+  deletedBy   User?    @relation("CommentDeletedBy", fields: [deletedById], references: [id])
+
+  // Lifecycle
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  fileUrl    String
+  fileType   String
+  issueId    String
+  uploadedBy String
+
+  issue      Issue    @relation(fields: [issueId], references: [id])
+  uploader   User     @relation(fields: [uploadedBy], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  createdAt DateTime         @default(now())
+}
